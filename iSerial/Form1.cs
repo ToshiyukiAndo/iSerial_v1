@@ -18,14 +18,10 @@ namespace iSerial
         Random rdm = new Random(); /* 乱数 */
 
         private int index = 0;
-        private int yIndex = 0;
+        private int xIndex = 0;
 
         bool chartOptimized = false;
 
-        List<int> startList = new List<int>();
-        List<int> endList = new List<int>();
-
-        List<ChartArea> chartAreas = new List<ChartArea>();
         List<Series> chartSeries = new List<Series>();
 
         public iSerial()
@@ -141,7 +137,12 @@ namespace iSerial
         private void BtnClear_Click(object sender, EventArgs e)
         {
             tbxRxData.Clear();
-        }
+            InitCharts();
+            chartOptimized = false;
+            chartSeries = new List<Series>();
+            index = 0;
+            xIndex = 0;
+    }
 
         private void SerialPort1_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
@@ -169,10 +170,10 @@ namespace iSerial
 
             try
             {
-                string[] splitedData = recievedData.Replace("\r", "").Replace("\n", "").Split(',');
+                string[] splitedData = recievedData.Replace("\r", "").Replace("\n", "").Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
 
-                /* 初期化がまだの場合、ここで文解析 */
-                if (index == 3 && !chartOptimized)
+                /* 3回目以降で初期化がまだの場合、ここで文解析 */
+                if (index >= 3 && !chartOptimized)
                 {
                     System.Diagnostics.Debug.WriteLine("data for optimize");
                     System.Diagnostics.Debug.WriteLine(recievedData);
@@ -214,48 +215,43 @@ namespace iSerial
             {
                 int currentChartArea = -1;
                 int currentSeries = -1;
-                bool yIndexUpdated = false;
-                foreach(var val in splitedData)
-                {
-                    if (val.Equals("<"))
-                    {
-                        currentChartArea++;
-                    }
-                    else if (val.Equals(">"))
-                    {
-                        /* 位置指定（x軸 300個） */
-                        try {
-                            chart1.ChartAreas["cArea" + currentChartArea.ToString()].AxisX.Minimum = yIndex - 300;
-                            chart1.ChartAreas["cArea" + currentChartArea.ToString()].AxisX.Maximum = yIndex;
-                        }
-                        catch
-                        {
+                bool xIndexUpdated = false;
 
-                        }
-                    }
-                    else if (currentChartArea != -1) /* -1だとareaがないのでスルー */
+                foreach (var val in splitedData)
+                {
+                    currentChartArea++;
+                    string[] temp = val.Split(','); // ,での分割
+                    foreach (var val2 in temp)
                     {
                         currentSeries++;
-                        try {
-                            chartSeries[currentSeries].Points.Add(new DataPoint(yIndex, Convert.ToDouble(val)));
+                        try
+                        {
+                            chartSeries[currentSeries].Points.Add(new DataPoint(xIndex, Convert.ToDouble(val2)));
                         }
                         catch
                         {
 
                         }
-                        if(!yIndexUpdated){
-                            yIndex++; /* チャートの分だけ++されるので最初の1回だけ */
-                            yIndexUpdated = true;
+                        if (!xIndexUpdated)
+                        {
+                            xIndex++; /* チャートの分だけ++されるので最初の1回だけ */
+                            xIndexUpdated = true;
                         }
                         /* chartSeriesの数が十万とかになると重いので1000以上になったら最初のデータを消していく */
                         /* このため、chartSeries[currentSeries]は1000このデータ配列（[0]が最古、[999]が最新） */
-                        if (yIndex >= 1000) chartSeries[currentSeries].Points.RemoveAt(0);
+                        if (xIndex >= 1000) chartSeries[currentSeries].Points.RemoveAt(0);
                     }
-                    else
+                    /* x軸 */
+                    try
                     {
+                        chart1.ChartAreas["cArea" + currentChartArea.ToString()].AxisX.Minimum = xIndex - 300;
+                        chart1.ChartAreas["cArea" + currentChartArea.ToString()].AxisX.Maximum = xIndex;
+                    }
+                    catch
+                    {
+
                     }
                 }
-                //seriesLine.Points.Add(new DataPoint(splitedData);
             }
         }
 
@@ -272,63 +268,51 @@ namespace iSerial
             else
             {
                 System.Diagnostics.Debug.WriteLine("OPT");
-                /* <と>がどれだけあるかの判別 */
-                int num = -1;
-                foreach (string s in splitedData)
-                {
-                    num++;
-                    if(s.Equals("<")) startList.Add(num);
-                    if(s.Equals(">")) endList.Add(num);
-                }
-                if (startList.Count != endList.Count) chartOptimized =  false; /* <と>の数が違うとき */
 
+                // 現在選択してるチャート
                 int currentChartArea = -1;
 
-                /* <>の数に併せてchartを作成 */
-                foreach (var val in splitedData) {
-                    System.Diagnostics.Debug.WriteLine(val);
-                    if (val.Equals("<")) {
-                        currentChartArea++;
-                        ChartArea cA = new ChartArea("cArea" + currentChartArea.ToString());
+                /* ;の数に併せてchartを作成 */
+                foreach (var val in splitedData) /* ;の数だけ分かれている */
+                {
+                    currentChartArea++;
+                    ChartArea cA = new ChartArea("cArea" + currentChartArea.ToString());
 
-                        /* グラフ周りの余白設定 */
-                        cA.InnerPlotPosition.Auto = true;
-                        cA.InnerPlotPosition.Width = 100; // 100%
-                        cA.InnerPlotPosition.Height = 85;  // 90%(横軸のメモリラベル印字分の余裕を設ける)
-                        cA.InnerPlotPosition.X = 2; // 左側の空白の大きさ
-                        cA.InnerPlotPosition.Y = 3; // 上側の空白の大きさ
+                    /* グラフ周りの余白設定 */
+                    cA.InnerPlotPosition.Auto = true;
+                    cA.InnerPlotPosition.Width = 100; // 100%
+                    cA.InnerPlotPosition.Height = 85;  // 90%(横軸のメモリラベル印字分の余裕を設ける)
+                    cA.InnerPlotPosition.X = 2; // 左側の空白の大きさ
+                    cA.InnerPlotPosition.Y = 3; // 上側の空白の大きさ
 
-                        /* 軸の表記設定 */
-                        Action<Axis> setAxis = (axisInfo) => {
-                            /* 軸メモリのフォントサイズ */
-                            axisInfo.LabelAutoFitMaxFontSize = 8;
-                            /* 軸メモリの文字色 */
-                            axisInfo.LabelStyle.ForeColor = Color.Black;
-                            /* 軸タイトルの文字色 */
-                            axisInfo.TitleForeColor = Color.Black;
-                            /* 網掛けの色 */
-                            axisInfo.MajorGrid.Enabled = true;
-                            axisInfo.MinorGrid.Enabled = false;
-                        };
+                    /* 軸の表記設定 */
+                    Action<Axis> setAxis = (axisInfo) => {
+                        /* 軸メモリのフォントサイズ */
+                        axisInfo.LabelAutoFitMaxFontSize = 8;
+                        /* 軸メモリの文字色 */
+                        axisInfo.LabelStyle.ForeColor = Color.Black;
+                        /* 軸タイトルの文字色 */
+                        axisInfo.TitleForeColor = Color.Black;
+                        /* 網掛けの色 */
+                        axisInfo.MajorGrid.Enabled = true;
+                        axisInfo.MinorGrid.Enabled = false;
+                    };
 
-                        /* 罫線の設定 */
-                        cA.AxisX.LineColor = Color.Black; // x軸
-                        cA.AxisX.MajorGrid.LineColor = Color.FromArgb(30, 0, 0, 0); // x軸罫線
-                        cA.AxisY.LineColor = Color.Black; // y軸
-                        cA.AxisY.MajorGrid.LineColor = Color.FromArgb(30, 0, 0, 0); // y軸罫線
+                    /* 罫線の設定 */
+                    cA.AxisX.LineColor = Color.Black; // x軸
+                    cA.AxisX.MajorGrid.LineColor = Color.FromArgb(30, 0, 0, 0); // x軸罫線
+                    cA.AxisY.LineColor = Color.Black; // y軸
+                    cA.AxisY.MajorGrid.LineColor = Color.FromArgb(30, 0, 0, 0); // y軸罫線
 
-                        /* X,Y軸の表示方法を定義 */
-                        setAxis(cA.AxisY);
-                        setAxis(cA.AxisX);
+                    /* X,Y軸の表示方法を定義 */
+                    setAxis(cA.AxisY);
+                    setAxis(cA.AxisX);
 
-                        /* チャートを追加 */
-                        chart1.ChartAreas.Add(cA);
-                    }
-                    else if (val.Equals(">"))
-                    {
-                        /* 閉じかっこの時（何もしない） */
-                    }
-                    else if(currentChartArea != -1 && val != "") /* -1だとareaがないのでスルー */
+                    /* チャートを追加 */
+                    chart1.ChartAreas.Add(cA);
+
+                    string[] temp = val.Split(','); // ,での分割
+                    foreach (var val2 in temp)
                     {
                         var s = new Series();
                         s.ChartType = SeriesChartType.Line;
@@ -339,11 +323,9 @@ namespace iSerial
                         chart1.Series.Add(s);
                         System.Diagnostics.Debug.WriteLine(chartSeries.Count);
                     }
-                    else
-                    {
-                    }
                 }
-                if ((currentChartArea+1)*2 + chartSeries.Count == splitedData.Length) {
+
+                if ((currentChartArea+1) == splitedData.Length) {
                     chartOptimized = true;
                 }
             }
