@@ -19,6 +19,7 @@ namespace iSerial
 
         private int index = 0;
         private int xIndex = 0;
+        private int xWindowSize = 300;
 
         bool chartOptimized = false;
 
@@ -33,6 +34,7 @@ namespace iSerial
 
             InitComboBox();
             InitButton();
+            this.chart1.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.chart1_MouseWheel);
         }
 
         private void InitComboBox()
@@ -134,15 +136,16 @@ namespace iSerial
             }
         }
 
+        /* Clearボタン */
         private void BtnClear_Click(object sender, EventArgs e)
         {
-            tbxRxData.Clear();
-            InitCharts();
-            chartOptimized = false;
-            chartSeries = new List<Series>();
-            index = 0;
-            xIndex = 0;
-    }
+            tbxRxData.Clear(); // 文字表示部分の削除
+            InitCharts(); // 現在の表示の削除
+            chartOptimized = false; // チャートが初期化されているかどうか
+            chartSeries = new List<Series>(); // 値をストックする配列の初期化
+            index = 0; // 総読み込み数
+            xIndex = 0; // x軸用のindex
+        }
 
         private void SerialPort1_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
@@ -244,7 +247,7 @@ namespace iSerial
                     /* x軸 */
                     try
                     {
-                        chart1.ChartAreas["cArea" + currentChartArea.ToString()].AxisX.Minimum = xIndex - 300;
+                        chart1.ChartAreas["cArea" + currentChartArea.ToString()].AxisX.Minimum = xIndex - xWindowSize;
                         chart1.ChartAreas["cArea" + currentChartArea.ToString()].AxisX.Maximum = xIndex;
                     }
                     catch
@@ -350,6 +353,18 @@ namespace iSerial
         {
             /* ボタンのUI変更 */
             btnOpen.Enabled = true;
+        }
+
+        /* マウスホイールの検知 */
+        private void chart1_MouseWheel(object sender, MouseEventArgs e)
+        {
+            if(e.Delta > 0){
+                if(xWindowSize < 1000) xWindowSize = xWindowSize + 10;
+            }
+            else if(e.Delta < 0)
+            {
+                if(xWindowSize > 10) xWindowSize = xWindowSize - 10;
+            }
         }
     }
 }
