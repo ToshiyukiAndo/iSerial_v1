@@ -366,5 +366,11 @@ namespace iSerial
                 if(xWindowSize > 10) xWindowSize = xWindowSize - 10;
             }
         }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            Form2 form2 = new Form2();
+            form2.Show();
+        }
     }
 }
