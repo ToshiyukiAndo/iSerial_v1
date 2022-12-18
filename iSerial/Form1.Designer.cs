@@ -118,6 +118,7 @@
             this.tbxRxData.Size = new System.Drawing.Size(1240, 190);
             this.tbxRxData.TabIndex = 5;
             this.tbxRxData.TabStop = false;
+            this.tbxRxData.TextChanged += new System.EventHandler(this.tbxRxData_TextChanged);
             // 
             // cmbCOMPort
             // 
